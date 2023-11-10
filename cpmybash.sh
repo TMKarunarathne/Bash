@@ -6,11 +6,11 @@ FileListUpdate(){
     FILELIST=`ls /root/TMK/secFolder/`
 
     for file in $FILELIST; do
-        echo "$file"
+        # echo "$file"
         hashFilePair=$(md5sum /root/TMK/secFolder/$file)
         #echo "$hashFilePair"
         read hash file <<< "$hashFilePair"
-        echo "$file - - - -> $hash"
+        # echo "$file - - - -> $hash"
         fileForHash[$file]=$hash
         #echo
     done
@@ -26,9 +26,10 @@ FileListCheck(){
         oldHash="${fileForHash[$key]}"
 
         if [[ -e $key ]]; then
-            echo "$key file exists."
+            # echo "$key file exists."
+            keyStat=true
         else
-            echo "$key file does not exist. It was removed/deleted"
+            # echo "$key file does not exist. It was removed/deleted"
             shouldUpdate=true
             deletedFiles[$key]=$oldHash
             newHash=$oldHash
@@ -52,11 +53,16 @@ FileListCheck(){
                 echo " "
                 eventID=$(echo "$log" | grep -oE 'audit\([0-9.]+:([0-9]+)' | awk -F: '{print $2}')
                 syscallLog=$(grep -E "type=SYSCALL.*:$eventID\)" /var/log/audit/audit.log)
+                procTitleLog=$(grep -E "type=PROCTITLE.*:$eventID\)" /var/log/audit/audit.log)
                 #echo "$syscallLog"
+
+                hexCommand=$(echo "$procTitleLog" | grep -o 'proctitle=[^ ]*' | awk -F'=' '{print $2}')
+                command=$(echo "$hexCommand" | xxd -r -p | tr -d '\0')
+
                 epochTime=$(echo "$log" | grep -oE 'audit\([0-9]*\.[0-9]*' | awk -F"(" '{print $2}')
                 lastModifiedTime=$(TZ="Asia/Kolkata" date -d "@$epochTime" "+%Y-%m-%d %H:%M:%S")
                 success=$(echo "$syscallLog" | grep -o 'success=[^ ]*' | awk -F'=' '{print $2}')
-                command=$(echo "$syscallLog" | grep -o 'comm="[^"]*"' | sed 's/comm="//;s/"//')
+                # command=$(echo "$syscallLog" | grep -o 'comm="[^"]*"' | sed 's/comm="//;s/"//')
                 keyWord=$(echo "$syscallLog" | grep -o 'key="[^"]*"' | sed 's/key="//;s/"//')
                 action=$(echo "$syscallLog" | grep -o 'SYSCALL=[^ ]*' | awk -F'=' '{print $2}')
                 auid=$(echo "$syscallLog" | grep -o 'AUID="[^"]*"' | sed 's/AUID="//;s/"//')
@@ -72,9 +78,10 @@ FileListCheck(){
 
     for file in $FILELIST; do
         if [[ -v fileForHash["/root/TMK/secFolder/$file"] ]]; then
-            echo "/root/TMK/secFolder/$file exists in the array."
+            # echo "/root/TMK/secFolder/$file exists in the array."
+            keyStat=true
         else
-            echo "/root/TMK/secFolder/$file does not exist in the array. It sould be added to the array"
+            # echo "/root/TMK/secFolder/$file does not exist in the array. It sould be added to the array"
 
             hashFilePair=$(md5sum /root/TMK/secFolder/$file)
             #echo "$hashFilePair"
@@ -117,7 +124,7 @@ miniLogCreator(){
     distro=`cat /etc/os-release | grep -oP 'PRETTY_NAME="\K[^"]+'`
     IP=`who am i |awk '{match($0,/[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+/); ip = substr($0,RSTART,RLENGTH); print ip'}`
     dir=$key
-    lastModifiedTime=$(stat -c "%y" $key)
+    lastModifiedTime=$(stat -c "%y" $key 2>/dev/null)
 
     logMes="LastModifiedTime=$lastModifiedTime, OS=$distro, EVENTSOURCEIP=$EVENTSOURCE_IP, EventType="FS", Event_Action=$eventAction, FileDir=$dir, Hash=$newHash"
     echo "$logMes"
@@ -126,7 +133,7 @@ miniLogCreator(){
 
 detailedLogCreator(){
     #### $eventAction sholud define before use this function
-    lastModifiedTime=$(stat -c "%y" $key)
+    lastModifiedTime=$(stat -c "%y" $key 2>/dev/null)
     time="$lastModifiedTime"
     stime=$(date -d "$time" "+%s")
     ms=$(echo $time | awk '{sub(/.*\./,""); print substr($1, 1, 3)}')
@@ -153,10 +160,10 @@ detailedLogCreator(){
         #echo "$syscallLog"
 
         hexCommand=$(echo "$procTitleLog" | grep -o 'proctitle=[^ ]*' | awk -F'=' '{print $2}')
-        command=$(echo "$hexCommand" | xxd -r -p)
+        command=$(echo "$hexCommand" | xxd -r -p | tr -d '\0')
 
         success=$(echo "$syscallLog" | grep -o 'success=[^ ]*' | awk -F'=' '{print $2}')
-        echo "Success status is : $success"
+        # echo "Success status is : $success"
         # command=$(echo "$syscallLog" | grep -o 'comm="[^"]*"' | sed 's/comm="//;s/"//')
         keyWord=$(echo "$syscallLog" | grep -o 'key="[^"]*"' | sed 's/key="//;s/"//')
         action=$(echo "$syscallLog" | grep -o 'SYSCALL=[^ ]*' | awk -F'=' '{print $2}')
@@ -164,9 +171,9 @@ detailedLogCreator(){
 
         logMes="LastModifiedTime=$lastModifiedTime, OS=$distro, EVENTSOURCEIP=$EVENTSOURCE_IP, EventType="FS", Event_Action=$eventAction, FileDir=$dir, Hash=$newHash, Success=$success, Command=$command, Key=$keyWord, Action=$action, AUID=$auid"
         echo "$logMes"
-        # echo "$logMes" >> /var/log/fim.log
+        echo "$logMes" >> /var/log/fim.log
     done
-    echo "end of the for loop"
+    # echo "end of the for loop"
     unset IFS
 }
 ############################################
@@ -213,7 +220,7 @@ while [ $i -lt 10 ]; do
 
         if [ "$oldHash" != "$newHash" ]; then
             shouldUpdate=true
-            echo "The file $key was changed."
+            # echo "The file $key was changed."
             fileForHash[$key]=$newHash
 
             ## logger command ##
