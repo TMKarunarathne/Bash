@@ -27,3 +27,5 @@ fi
 OLD_CMD=$CMD
 }
 trap history_to_syslog DEBUG || EXIT
+
+#this is comment

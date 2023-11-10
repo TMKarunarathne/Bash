@@ -149,11 +149,15 @@ detailedLogCreator(){
         echo " "
         eventID=$(echo "$log" | grep -oE 'audit\([0-9.]+:([0-9]+)' | awk -F: '{print $2}')
         syscallLog=$(grep -E "type=SYSCALL.*:$eventID\)" /var/log/audit/audit.log)
+        procTitleLog=$(grep -E "type=PROCTITLE.*:$eventID\)" /var/log/audit/audit.log)
         #echo "$syscallLog"
+
+        hexCommand=$(echo "$procTitleLog" | grep -o 'proctitle=[^ ]*' | awk -F'=' '{print $2}')
+        command=$(echo "$hexCommand" | xxd -r -p)
 
         success=$(echo "$syscallLog" | grep -o 'success=[^ ]*' | awk -F'=' '{print $2}')
         echo "Success status is : $success"
-        command=$(echo "$syscallLog" | grep -o 'comm="[^"]*"' | sed 's/comm="//;s/"//')
+        # command=$(echo "$syscallLog" | grep -o 'comm="[^"]*"' | sed 's/comm="//;s/"//')
         keyWord=$(echo "$syscallLog" | grep -o 'key="[^"]*"' | sed 's/key="//;s/"//')
         action=$(echo "$syscallLog" | grep -o 'SYSCALL=[^ ]*' | awk -F'=' '{print $2}')
         auid=$(echo "$syscallLog" | grep -o 'AUID="[^"]*"' | sed 's/AUID="//;s/"//')
